@@ -2,6 +2,7 @@
 #include "zoom.h"
 #include "paint.h"
 #include "invert.h"
+#include "fileio.h"
 
 byte screen_zoom = 2;
 byte lens_zoom = 8;
@@ -76,6 +77,22 @@ void get_input() {
 	if(is_invert_set) {						// get invert bit position
 		invert_offset_x = (oric_mouse_x/6)*6;
 	}
+	if (key_shifts & KB_CTRL_FLAG) {
+		if (key_shifts & KB_SHIFT_FLAG) {
+			if(key[KEY_S]) {				// saves sprite
+				save_sprite();
+			}
+		} else {
+			if(key[KEY_S]) {				// saves
+				save();
+			}
+		}
+	}
+	if(key[KEY_L]) {						// loads
+		if (key_shifts & KB_CTRL_FLAG) {
+			load();
+		}
+	}
 	if ((mouse_b & 1)&&!is_zoom_set) {		// mouse button 1 pressed
 		if(is_invert_set) {					// set invert bit and draw
 			if(oric_mouse_x>5 && oric_mouse_y>-1) {
@@ -125,6 +142,8 @@ int main(void) {
 	  allegro_message("Unable to set mode %ix%i with %ibpp\n", 10, 10, 8);
 	  exit(-1);           
 	}
+	
+	set_window_title("Oric Draw");
 	
 	buffer = create_bitmap(SCREEN_W, SCREEN_H);
 	mouse_bmp = create_bitmap(10,10);
