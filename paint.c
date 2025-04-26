@@ -1,26 +1,52 @@
 #include <allegro.h>
 #include "paint.h"
+#include "attributes.h"
+
+void redraw_line(byte y) {
+	byte cur_ink, cur_paper;
+	cur_ink = 7; cur_paper = 0;
+	for(int j=0; j<40; j++) {
+		if(oattrib[j][y] < 16) {
+			cur_ink = oattrib[j][y];
+			for(int i=0; i<6; i++) {
+				obitmap[j*6+i][y] = 0;
+				if(oinvert[j][y]) putpixel(oric_screen, j*6+i, y, invert_color(ocolor[cur_paper]));
+				else putpixel(oric_screen, j*6+i, y, ocolor[cur_paper]);
+			}
+			continue;
+		} else if(oattrib[j][y] < 24) {
+			cur_paper = oattrib[j][y]-16;
+			for(int i=0; i<6; i++) {
+				obitmap[j*6+i][y] = 0;
+				if(oinvert[j][y]) putpixel(oric_screen, j*6+i, y, invert_color(ocolor[cur_paper]));
+				else putpixel(oric_screen, j*6+i, y, ocolor[cur_paper]);
+			}
+			continue;
+		}
+		for(int i=0; i<6; i++) {
+			if(oinvert[j][y]) {
+				if(obitmap[j*6+i][y]) putpixel(oric_screen, j*6+i, y, invert_color(ocolor[cur_ink]));
+				else putpixel(oric_screen, j*6+i, y, invert_color(ocolor[cur_paper]));
+			} else {
+				if(obitmap[j*6+i][y]) putpixel(oric_screen, j*6+i, y, ocolor[cur_ink]);
+				else putpixel(oric_screen, j*6+i, y, ocolor[cur_paper]);
+			}
+		}
+	}
+}
 
 void put_fg_pixel(int x, int y) {
-	if((y&1) == 0) {
-		if(oinvert[x/6][y]) putpixel(oric_screen, oric_mouse_x, oric_mouse_y, invert_color(ocolor[AIC_FG1]));
-		else putpixel(oric_screen, oric_mouse_x, oric_mouse_y, ocolor[AIC_FG1]);
-	} else {
-		if(oinvert[x/6][y]) putpixel(oric_screen, oric_mouse_x, oric_mouse_y, invert_color(ocolor[AIC_FG2]));
-		else putpixel(oric_screen, oric_mouse_x, oric_mouse_y, ocolor[AIC_FG2]);
-	}
+	obitmap[x][y] = 1;
+	oattrib[x/6][y] = 255;
+	redraw_line(y);
 }
 
 void put_bg_pixel(int x, int y) {
-	if(oinvert[(x/6)][y]) putpixel(oric_screen, oric_mouse_x, oric_mouse_y, invert_color(ocolor[BLACK]));
-	else putpixel(oric_screen, oric_mouse_x, oric_mouse_y, ocolor[BLACK]);
+	obitmap[x][y] = 0;
+	oattrib[x/6][y] = 255;
+	redraw_line(y);
 }
 
 void draw_paint_cursors() {
-	rectfill(buffer,oric_mouse_x*screen_zoom,oric_mouse_y*screen_zoom,oric_mouse_x*screen_zoom+1,oric_mouse_y*screen_zoom+1,GREY);
-	if(oric_mouse_x>=lens_offset_x && oric_mouse_x < lens_max_x+lens_offset_x 
-		&& oric_mouse_y>=lens_offset_y && oric_mouse_y < lens_max_y+lens_offset_y) {
-		rectfill(buffer,(oric_mouse_x-lens_offset_x)*lens_zoom,(oric_mouse_y-lens_offset_y)*lens_zoom+401,
-			(oric_mouse_x-lens_offset_x)*lens_zoom+lens_zoom-1,(oric_mouse_y-lens_offset_y)*lens_zoom+401+lens_zoom-1,GREY);
-	}
+	putpixel(prev_screen, oric_mouse_x, oric_mouse_y, GREY);
 }

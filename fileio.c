@@ -1,12 +1,12 @@
 #include <allegro.h>
 #include <stdio.h>
 #include "fileio.h"
+#include "paint.h"
 
 void save() {
 	FILE *fptr;
 	int i, x, y;
 	unsigned char o;
-	int bg;
 	unsigned char head[21] = { 0x16,0x16,0x16,0x24,0x00,0x00,0x80,0x00,0xbf,0x3f,0xa0,0x00,0x00,0x4f,0x55,0x54,0x2e,0x48,0x52,0x53, 0 };
 	char path[512] = "./";
 	char buf[512];
@@ -19,22 +19,18 @@ void save() {
 	for(i=0; i<21; i++) fputc(head[i], fptr);
 	for(y=0; y<200; y++) {
 		for(x=0; x<240; x=x+6) {
-			if(x==0) {
-				if((y&1) == 0) fputc(6, fptr);
-				else fputc(3, fptr);
+			if(oattrib[x/6][y] < 24) {
+				if(oinvert[x/6][y] == 0) o = oattrib[x/6][y];
+				else o = oattrib[x/6][y] + 128;
 			} else {
-				if(oinvert[x/6][y] == 0) {
-					bg = ocolor[BLACK];
-					o = 64;
-				} else {
-					bg = invert_color(ocolor[BLACK]);
-					o = 192;
-				}
+				o = 64;
 				for(i=0; i<6; i++) {
-					if(getpixel(oric_screen, x+i, y) != bg) o = o + (2<<(5-i))/2;
+					if(obitmap[x+i][y]) o = o + (2<<(5-i))/2;
 				}
-				fputc(o, fptr);
+				if(oinvert[x/6][y] != 0) o = o + 128;
 			}
+			
+			fputc(o, fptr);
 		}
 	}
 	fclose(fptr);
@@ -59,11 +55,10 @@ DIALOG dlg[] = {
 };
 
 void save_sprite() {
-	int width = 24;
+	int width = 18;
 	int height = 18;
 	int frames = 3;
 	int xabs;
-	int bg;
 	unsigned char o;
 	FILE *fptr;
 	char path[512] = "./";
@@ -87,15 +82,15 @@ void save_sprite() {
 		for(int y=0; y<height; y++) {
 			for(int x=0; x<width; x=x+6) {
 				xabs = 6 + x + f*width;
-				if(oinvert[xabs/6][y] == 0) {
-					bg = ocolor[BLACK];
-					o = 64;
+				if(oattrib[xabs/6][y] < 24) {
+					if(oinvert[xabs/6][y] == 0) o = oattrib[xabs/6][y];
+					else o = oattrib[xabs/6][y] + 128;
 				} else {
-					bg = invert_color(ocolor[BLACK]);
-					o = 192;
-				}
-				for(int i=0; i<6; i++) {
-					if(getpixel(oric_screen, xabs+i, y) != bg) o = o + (2<<(5-i))/2;
+					if(oinvert[xabs/6][y] == 0) o = 64;
+					else o = 192;
+					for(int i=0; i<6; i++) {
+						if(obitmap[xabs+i][y] > 0) o = o + (2<<(5-i))/2;
+					}
 				}
 				if(f==(frames-1) && y==(height-1) && x==(width-6)) {
 					sprintf(buf,"%d ", o);
@@ -115,7 +110,6 @@ void save_sprite() {
 void load() {
 	FILE *fptr;
 	int i, x, y;
-	int fg, bg;
 	unsigned char o;
 	char path[512] = "./";
 	char buf[512];
@@ -131,26 +125,23 @@ void load() {
 	while((o=fgetc(fptr)) != 0) { }  // discard file name
 	for(y=0; y<200; y++) {
 		for(x=0; x<240; x=x+6) {
-			if(x==0) {
-				fgetc(fptr);  // discard first byte of each line (color attribute in AIC)
+			o = fgetc(fptr);
+			if(o>>7 == 1) {
+				oinvert[x/6][y] = 1;
+				o = o - 128;
+			} else oinvert[x/6][y] = 0;
+			if(o < 24 ) {
+				oattrib[x/6][y] = o;
+				for(i=0; i<6; i++) obitmap[x+i][y] = 0;
 			} else {
-				o = fgetc(fptr);
-				if(o>>7 == 1) {
-					oinvert[x/6][y] = 1;
-					if((y&1) == 0) fg = invert_color(ocolor[AIC_FG1]);
-					else fg = invert_color(ocolor[AIC_FG2]);
-					bg = invert_color(ocolor[BLACK]);
-				} else {
-					if((y&1) == 0) fg = ocolor[AIC_FG1];
-					else fg = ocolor[AIC_FG2];
-					bg = ocolor[BLACK];
-				}
+				oattrib[x/6][y] = 255;
 				for(i=0; i<6; i++) {
-					if(o&((2<<(5-i))/2)) putpixel(oric_screen,x+i,y,fg);
-					else putpixel(oric_screen,x+i,y,bg);
+					if(o&((2<<(5-i))/2)) obitmap[x+i][y] = 1;
+					else obitmap[x+i][y] = 0;
 				}
 			}
 		}
+		redraw_line(y);
 	}
 	fclose(fptr);
 }
